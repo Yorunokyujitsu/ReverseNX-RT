@@ -1,6 +1,7 @@
 #define TESLA_INIT_IMPL // If you have more than one file using the tesla header, only define this in the main one
 #include <tesla.hpp>    // The Tesla Header
 #include "SaltyNX.h"
+#include <dirent.h>
 
 bool* def = 0;
 bool* isDocked = 0;
@@ -14,12 +15,41 @@ bool check = false;
 bool SaltySD = false;
 bool bak = false;
 bool plugin = true;
+char saveChar[32];
 char DockedChar[32];
 char SystemChar[32];
 uint64_t PID = 0;
 Handle remoteSharedMemory = 1;
 SharedMemory _sharedmemory = {};
 bool SharedMemoryUsed = false;
+
+bool writeSave() {
+	uint64_t titid = 0;
+	if (R_FAILED(pmdmntGetProgramId(&titid, PID))) {
+		return false;
+	}
+	char path[128];
+	DIR* dir = opendir("sdmc:/SaltySD/plugins/ReverseNX-RT/");
+	if (!dir) {
+		mkdir("sdmc:/SaltySD/plugins/", 777);
+		mkdir("sdmc:/SaltySD/plugins/ReverseNX-RT/", 777);
+	}
+	else closedir(dir);
+	snprintf(path, sizeof(path), "sdmc:/SaltySD/plugins/ReverseNX-RT/%016lX.dat", titid);
+	if (_def) {
+		remove(path);
+		return true;
+	}
+	FILE* save_file = fopen(path, "wb");
+	if (!save_file)
+		return false;
+	fprintf(save_file, "NXRT");
+	uint8_t version = 1;
+	fwrite(&version, 1, 1, save_file);
+	fwrite(&_isDocked, 1, 1, save_file);
+	fclose(save_file);
+	return true;
+}
 
 bool LoadSharedMemory() {
 	if (SaltySD_Connect())
@@ -79,43 +109,45 @@ public:
 	virtual tsl::elm::Element* createUI() override {
 		// A OverlayFrame is the base element every overlay consists of. This will draw the default Title and Subtitle.
 		// If you need more information in the header or want to change it's look, use a HeaderOverlayFrame.
-		auto frame = new tsl::elm::OverlayFrame("ReverseNX-RT", APP_VERSION);
+		auto frame = new tsl::elm::OverlayFrame("ReverseNX-RT", "2.1.0-ASAP");
 
 		// A list that can contain sub elements and handles scrolling
 		auto list = new tsl::elm::List();
 		
 		list->addItem(new tsl::elm::CustomDrawer([](tsl::gfx::Renderer *renderer, s32 x, s32 y, s32 w, s32 h) {
 			if (!SaltySD) {
-				renderer->drawString("SaltyNX is not working!", false, x, y+50, 20, renderer->a(0xF33F));
+				renderer->drawString("SaltyNX가 실행되지 않았습니다!", false, x, y+50, 20, renderer->a(0xF33F));
 			}
 			else if (!check) {
 				if (closed) {
-					renderer->drawString("Game was closed! Overlay disabled!", false, x, y+20, 19, renderer->a(0xF33F));
+					renderer->drawString("타이틀 종료, 오버레이 비활성화!", false, x, y+20, 19, renderer->a(0xF33F));
 				}
 				else {
-					renderer->drawString("Game is not running! Overlay disabled!", false, x, y+20, 19, renderer->a(0xF33F));
+					renderer->drawString("실행 타이틀 없음, 오버레이 비활성화!", false, x, y+20, 19, renderer->a(0xF33F));
 				}
 			}
 			else if (!PluginRunning) {
-				renderer->drawString("Game is running.", false, x, y+20, 20, renderer->a(0xFFFF));
-				renderer->drawString("ReverseNX-RT is not running!", false, x, y+40, 20, renderer->a(0xF33F));
+				renderer->drawString("타이틀 실행중", false, x, y+20, 20, renderer->a(0xFFFF));
+				renderer->drawString("ReverseNX-RT가 실행되지 않았습니다!", false, x, y+40, 20, renderer->a(0xF33F));
 			}
 			else {
-				renderer->drawString("ReverseNX-RT is running.", false, x, y+20, 20, renderer->a(0xFFFF));
-				if (!*pluginActive) renderer->drawString("Game didn't check any mode!", false, x, y+40, 18, renderer->a(0xF33F));
+				renderer->drawString("ReverseNX-RT 실행중", false, x, y+20, 20, renderer->a(0xFFFF));
+				if (!*pluginActive) renderer->drawString("모드가 확인되지 않습니다!", false, x, y+40, 18, renderer->a(0xF33F));
 				else {
 					renderer->drawString(SystemChar, false, x, y+40, 20, renderer->a(0xFFFF));
 					renderer->drawString(DockedChar, false, x, y+60, 20, renderer->a(0xFFFF));
 				}
+				renderer->drawString(saveChar, false, x, y+80, 20, renderer->a(0xFFFF));
 			}
-	}), 100);
+	}), 120);
 
 		if (PluginRunning && *pluginActive) {
-			auto *clickableListItem = new tsl::elm::ListItem("Change system control");
+			auto *clickableListItem = new tsl::elm::ListItem("시스템 제어");
 			clickableListItem->setClickListener([](u64 keys) { 
 				if ((keys & HidNpadButton_A) && PluginRunning) {
 					_def = !_def;
 					*def = _def;
+					return true;
 				}
 
 				return false;
@@ -123,16 +155,30 @@ public:
 
 			list->addItem(clickableListItem);
 			
-			auto *clickableListItem2 = new tsl::elm::ListItem("Change mode");
+			auto *clickableListItem2 = new tsl::elm::ListItem("모드 변경");
 			clickableListItem2->setClickListener([](u64 keys) { 
 				if ((keys & HidNpadButton_A) && PluginRunning && !_def) {
 					_isDocked = !_isDocked;
 					*isDocked = _isDocked;
+					return true;
 				}
 				
 				return false;
 			});
 			list->addItem(clickableListItem2);
+
+			auto *clickableListItem3 = new tsl::elm::ListItem("Save current settings");
+			clickableListItem3->setClickListener([](u64 keys) { 
+				if ((keys & HidNpadButton_A) && PluginRunning) {
+					if (writeSave())
+						snprintf(saveChar, sizeof(saveChar), "Settings saved successfully!");
+					else snprintf(saveChar, sizeof(saveChar), "Saving settings failed!");
+					return true;
+				}
+				
+				return false;
+			});
+			list->addItem(clickableListItem3);
 		}
 
 		// Add the list to the frame for it to be drawn
@@ -158,11 +204,11 @@ public:
 				_isDocked = *isDocked;
 				i = 0;
 
-				if (_isDocked) sprintf(DockedChar, "Mode: Docked");
-				else sprintf(DockedChar, "Mode: Handheld");
+				if (_isDocked) sprintf(DockedChar, "타입： 독 모드");
+				else sprintf(DockedChar, "타입： 휴대모드");
 				
-				if (_def) sprintf(SystemChar, "Controlled by system: Yes");
-				else sprintf(SystemChar, "Controlled by system: No");
+				if (_def) sprintf(SystemChar, "시스템 제어 상태： ON");
+				else sprintf(SystemChar, "시스템 제어 상태： OFF");
 			}
 			else i++;
 		}
