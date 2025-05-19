@@ -109,30 +109,30 @@ public:
 	virtual tsl::elm::Element* createUI() override {
 		// A OverlayFrame is the base element every overlay consists of. This will draw the default Title and Subtitle.
 		// If you need more information in the header or want to change it's look, use a HeaderOverlayFrame.
-		auto frame = new tsl::elm::OverlayFrame("ReverseNX-RT", APP_VERSION);
+		auto frame = new tsl::elm::OverlayFrame("ReverseNX-RT", APP_VERSION"-ASAP");
 
 		// A list that can contain sub elements and handles scrolling
 		auto list = new tsl::elm::List();
 		
 		list->addItem(new tsl::elm::CustomDrawer([](tsl::gfx::Renderer *renderer, s32 x, s32 y, s32 w, s32 h) {
 			if (!SaltySD) {
-				renderer->drawString("SaltyNX is not working!", false, x, y+50, 20, renderer->a(0xF33F));
+				renderer->drawString("SaltyNX가 실행되지 않았습니다!", false, x, y+50, 20, renderer->a(0xF33F));
 			}
 			else if (!check) {
 				if (closed) {
-					renderer->drawString("Game was closed! Overlay disabled!", false, x, y+20, 19, renderer->a(0xF33F));
+					renderer->drawString("타이틀 종료, 오버레이 비활성화!", false, x, y+20, 19, renderer->a(0xF33F));
 				}
 				else {
-					renderer->drawString("Game is not running! Overlay disabled!", false, x, y+20, 19, renderer->a(0xF33F));
+					renderer->drawString("실행 타이틀 없음, 오버레이 비활성화!", false, x, y+20, 19, renderer->a(0xF33F));
 				}
 			}
 			else if (!PluginRunning) {
-				renderer->drawString("Game is running.", false, x, y+20, 20, renderer->a(0xFFFF));
-				renderer->drawString("ReverseNX-RT is not running!", false, x, y+40, 20, renderer->a(0xF33F));
+				renderer->drawString("타이틀 실행중", false, x, y+20, 20, renderer->a(0xFFFF));
+				renderer->drawString("ReverseNX-RT가 실행되지 않았습니다!", false, x, y+40, 20, renderer->a(0xF33F));
 			}
 			else {
-				renderer->drawString("ReverseNX-RT is running.", false, x, y+20, 20, renderer->a(0xFFFF));
-				if (!*pluginActive) renderer->drawString("Game didn't check any mode!", false, x, y+40, 18, renderer->a(0xF33F));
+				renderer->drawString("ReverseNX-RT 실행중", false, x, y+20, 20, renderer->a(0xFFFF));
+				if (!*pluginActive) renderer->drawString("모드가 확인되지 않습니다!", false, x, y+40, 18, renderer->a(0xF33F));
 				else {
 					renderer->drawString(SystemChar, false, x, y+40, 20, renderer->a(0xFFFF));
 					renderer->drawString(DockedChar, false, x, y+60, 20, renderer->a(0xFFFF));
@@ -142,7 +142,7 @@ public:
 	}), 120);
 
 		if (PluginRunning && *pluginActive) {
-			auto *clickableListItem = new tsl::elm::ListItem("Change system control");
+			auto *clickableListItem = new tsl::elm::ListItem("시스템 제어");
 			clickableListItem->setClickListener([](u64 keys) { 
 				if ((keys & HidNpadButton_A) && PluginRunning) {
 					_def = !_def;
@@ -155,7 +155,7 @@ public:
 
 			list->addItem(clickableListItem);
 			
-			auto *clickableListItem2 = new tsl::elm::ListItem("Change mode");
+			auto *clickableListItem2 = new tsl::elm::ListItem("모드 변경");
 			clickableListItem2->setClickListener([](u64 keys) { 
 				if ((keys & HidNpadButton_A) && PluginRunning && !_def) {
 					_isDocked = !_isDocked;
@@ -167,12 +167,12 @@ public:
 			});
 			list->addItem(clickableListItem2);
 
-			auto *clickableListItem3 = new tsl::elm::ListItem("Save current settings");
+			auto *clickableListItem3 = new tsl::elm::ListItem("현재 설정을 저장");
 			clickableListItem3->setClickListener([](u64 keys) { 
 				if ((keys & HidNpadButton_A) && PluginRunning) {
 					if (writeSave())
-						snprintf(saveChar, sizeof(saveChar), "Settings saved successfully!");
-					else snprintf(saveChar, sizeof(saveChar), "Saving settings failed!");
+						snprintf(saveChar, sizeof(saveChar), "설정 저장 성공!");
+					else snprintf(saveChar, sizeof(saveChar), "설정 저장 실패!");
 					return true;
 				}
 				
@@ -204,11 +204,11 @@ public:
 				_isDocked = *isDocked;
 				i = 0;
 
-				if (_isDocked) sprintf(DockedChar, "Mode: Docked");
-				else sprintf(DockedChar, "Mode: Handheld");
+				if (_isDocked) sprintf(DockedChar, "타입： 독 모드");
+				else sprintf(DockedChar, "타입： 휴대모드");
 				
-				if (_def) sprintf(SystemChar, "Controlled by system: Yes");
-				else sprintf(SystemChar, "Controlled by system: No");
+				if (_def) sprintf(SystemChar, "시스템 제어 상태： ON");
+				else sprintf(SystemChar, "시스템 제어 상태： OFF");
 			}
 			else i++;
 		}
